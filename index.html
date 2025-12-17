@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>General Knowledge For Police Exam</title>
+    
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+    
+    <script defer src="script.js"></script>
+</head>
+<body>
+    <div class="quiz-container">
+
+        <div class="splash-screen active" id="splashScreen">
+            <div class="splash-logo-container">
+                <div class="outer-circle">
+                    <div class="inner-circle">
+                        <div class="logo-text">
+                            <span>Utkarsh</span>
+                            <span>Coaching</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="name-input-screen" id="nameInputScreen">
+            <div class="logo-container-top-right">
+                <div class="outer-circle">
+                    <div class="inner-circle">
+                        <div class="logo-text"><span>Utkarsh</span><span>Coaching</span></div>
+                    </div>
+                </div>
+            </div>
+            <h1>WELCOME</h1>
+            <p>Enter Your Name</p>
+            <div class="input-group">
+                <input type="text" id="userNameInput" placeholder="আপনার নাম" required>
+            </div>
+            <button class="button glow-on-hover" id="proceedToStartScreenButton">Start Quiz</button>
+            <button class="button" id="checkScoresButton">Check My Scores</button>
+            <div id="nameInputMessage" style="color: red; margin-top: 10px;"></div>
+        </div>
+
+        <div class="start-screen" id="startScreen">
+            <div class="logo-container-top-right">
+                <div class="outer-circle"><div class="inner-circle"><div class="logo-text"><span>Utkarsh</span><span>Coaching</span></div></div></div>
+            </div>
+            <h1>কুইজ লোড হচ্ছে...</h1>
+            <div class="info-item">Total Question: <span id="totalQuestionsInfo">...</span></div>
+            <div class="info-item">Full Marks: <span id="fullMarksInfo">...</span></div>
+            <div class="info-item">Time: <span id="timeLimitInfo">...</span> মিনিট</div>
+            <button class="button" id="startButton">Start</button>
+        </div>
+
+        <div class="quiz-screen" id="quizScreen">
+            <div class="top-bar">
+                <div class="question-timer-circle">
+                    <svg class="progress-ring" width="80" height="80">
+                        <circle class="progress-ring-track" stroke="#d3d3d3" stroke-width="6" fill="transparent" r="35" cx="40" cy="40"/>
+                        <circle class="progress-ring-bar" stroke="#28a745" stroke-width="6" fill="transparent" r="35" cx="40" cy="40"/>
+                    </svg>
+                    <span class="question-timer-text" id="questionTimer">30</span>
+                </div>
+                <div class="score-display">SCORE: <span id="scoreDisplay">0</span></div>
+            </div>
+
+            <div class="question-index-display" id="questionIndexDisplay"></div>
+            <div class="question-text-box" id="questionTextBox"> </div>
+            <div class="options-container" id="optionsContainer"></div>
+            <div class="feedback-message" id="feedbackMessage"></div>
+
+            <div class="controls">
+                <button class="button navigation-button" id="nextButton">Next</button>
+                <button class="button navigation-button skip-button" id="skipButton">Skip</button>
+                <button class="button navigation-button submit-button" id="submitButton" style="display: none;">Submit</button>
+            </div>
+        </div>
+
+        <div class="result-screen" id="resultScreen">
+            <h2>Result</h2>
+            <div class="result-summary" id="resultSummary">
+                <p class="score-overall">Score: <span id="finalScore">0.00</span></p>
+                <p>Correct Answers: <span id="correctAnswers">0</span></p>
+                <p>Wrong Answers: <span id="wrongAnswers">0</span></p>
+                <p>Unattempted: <span id="skippedQuestions">0</span></p>
+                <p>Total Questions: <span id="finalTotalQuestions">25</span></p>
+
+                <p class="your-percentage-text">Your Percentage: <span id="yourPercentage">0.00%</span></p>
+                <div class="percentage-bar">
+                    <div class="percentage-bar-fill" id="percentageBarFill"></div>
+                </div>
+
+                <div class="result-actions">
+                    <button class="button show-button" id="showAllAnswersButton">show-all</button>
+                    <button class="button show-button" id="showCorrectAnswersButton">show-Correct</button>
+                    <button class="button show-button" id="showWrongAnswersButton">show-wrong</button>
+                    <button class="button show-button" id="showSkippedQuestionsButton">show-Unattempted</button>
+                </div>
+            </div>
+
+            <div class="detailed-answers-container" id="detailedAnswersContainer" style="display: none;">
+                <h2 id="detailedAnswersTitle"></h2>
+                <div class="detailed-questions-list">
+                    <ul id="questionsList"></ul>
+                </div>
+                <button class="button" id="backToResultsButton">ফলাফলে ফিরে যান</button>
+            </div>
+
+            <div class="personal-scores-section" id="personalScoresSection" style="display: none;">
+                <h2 id="personalScoresTitle"></h2>
+                <ol id="personalScoresList"></ol>
+            </div>
+            <div class="ranking-section">
+                <h2>Maximum Score</h2>
+                <ol id="rankList"></ol>
+            </div>
+            <button class="button" onclick="location.reload()">আবার শুরু করুন</button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+</body>
+</html>
