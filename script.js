@@ -136,6 +136,14 @@ function fetchQuizDataAndShowSplash() {
     });
 }
 
+// --- Shuffle Function (ওলটপালট করার ফাংশন) ---
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
 function validateNameAndStartQuiz() {
     const inputName = userNameInput.value.trim();
     if (inputName === '') {
@@ -164,9 +172,15 @@ function showNameInputScreen() {
 }
 
 function startQuiz() { 
+    // --- Shuffle Enabled Here (চালু করা হয়েছে) ---
+    shuffleArray(questions); 
+    questions.forEach(q => shuffleArray(q.options)); 
+
     nameInputScreen.classList.remove('active');
     quizScreen.classList.add('active');
+
     quizAttemptKey = database.ref('quizResults/' + QUIZ_ID).push().key;
+
     resetQuizState(); 
     loadQuestion();
     scoreDisplayElem.textContent = score;
@@ -248,7 +262,8 @@ function loadQuestion() {
         setTimeout(() => button.classList.add('active'), index * 100);
     });
 
-    renderMath(quizScreen); // ম্যাথ রেন্ডার
+    // --- Math Rendering Call ---
+    renderMath(quizScreen);
 }
 
 function selectOption(selectedButton, selectedAnswer) {
@@ -496,6 +511,8 @@ function displayDetailedQuestions(category) {
         li.innerHTML = html;
         questionsList.appendChild(li);
     });
+    
+    // --- Math Rendering ---
     renderMath(detailedAnswersContainer);
 }
 
