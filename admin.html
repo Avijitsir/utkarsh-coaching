@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel</title>
+    <title>Quiz Admin Panel</title>
     <link rel="stylesheet" href="admin.css">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
-
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
 </head>
@@ -19,31 +16,37 @@
         <div id="status-message"></div>
 
         <div class="form-section">
-            <h2>১. কুইজ সেটআপ</h2>
+            <h2>১. কুইজ সেটিংস</h2>
             <div class="input-group">
                 <input type="text" id="quiz-id-input" placeholder="Quiz ID (ex: gk_test_01)">
                 <button id="load-quiz-btn" class="secondary-btn">লোড করুন</button>
             </div>
+            
             <input type="text" id="quiz-title-input" placeholder="কুইজের নাম (Title)">
-        </div>
 
-        <div class="form-section" style="background: #e3f2fd;">
-            <label style="color:#0d47a1;">বিষয় নির্বাচন করুন (Subject):</label>
-            <select id="question-subject-select" style="border: 2px solid #2196f3; font-weight: bold;">
-                <option value="General Knowledge">General Knowledge</option>
-                <option value="Mathematics">Mathematics</option>
-                <option value="General Science">General Science</option>
-                <option value="English">English</option>
-                <option value="Reasoning">Reasoning</option>
-                <option value="History">History</option>
-                <option value="Geography">Geography</option>
-            </select>
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px;">
+                <div>
+                    <label>Time (Min)</label>
+                    <input type="number" id="time-input" placeholder="30">
+                </div>
+                <div>
+                    <label>Per Question (+)</label>
+                    <input type="number" id="marks-input" placeholder="1">
+                </div>
+                <div>
+                    <label>Negative (-)</label>
+                    <input type="number" id="negative-input" placeholder="0.25">
+                </div>
+                <div>
+                    <label>Pass Mark (%)</label>
+                    <input type="number" id="pass-mark-input" placeholder="40">
+                </div>
+            </div>
         </div>
 
         <div class="form-section" id="question-form">
             <h2>২. প্রশ্ন যোগ করুন</h2>
-            <label>প্রশ্ন:</label>
-            <textarea id="question-text-input" rows="3" placeholder="প্রশ্ন লিখুন... (যেমন: \( x^2 \))"></textarea>
+            <textarea id="question-text-input" rows="3" placeholder="প্রশ্ন লিখুন... (Math: \( x^2 \))"></textarea>
 
             <div class="options-grid">
                 <div><label>Option A</label><input type="text" id="option1-input"></div>
@@ -61,24 +64,11 @@
                 <option value="3">Option D</option>
             </select>
 
+            <label style="margin-top:15px; color:#2e7d32;">বিস্তারিত সমাধান (Explanation):</label>
+            <textarea id="explanation-input" rows="2" placeholder="উত্তরের ব্যাখ্যা দিন..."></textarea>
+
             <button id="add-question-btn">তালিকায় যোগ করুন</button>
             <button id="update-question-btn" style="display:none; background-color:#ffc107; color:black;">আপডেট করুন</button>
-        </div>
-
-        <div class="form-section">
-            <h2>৩. বাল্ক অ্যাড (Bulk Add)</h2>
-            <p style="font-size:13px; color:#666; background:#fff; padding:10px; border:1px solid #ddd;">
-                <strong>ফরম্যাট:</strong> প্রশ্ন, ৪টি অপশন, শেষে Answer: সঠিক উত্তর<br>
-                উদাহরণ:<br>
-                \( E = mc^2 \) কার সূত্র?<br>
-                নিউটন<br>
-                আইনস্টাইন<br>
-                ডারউইন<br>
-                হকিং<br>
-                Answer: আইনস্টাইন
-            </p>
-            <textarea id="bulk-input-textarea" rows="8" placeholder="প্রশ্নগুলো এখানে পেস্ট করুন..."></textarea>
-            <button id="process-bulk-btn" style="background:#673ab7;">বাল্ক প্রসেস করুন</button>
         </div>
 
         <div class="preview-section">
@@ -88,17 +78,15 @@
 
         <div class="save-section">
             <button id="save-quiz-btn">💾 সেভ এবং লিংক তৈরি করুন</button>
-            <div id="share-link-box" style="display:none; margin-top:20px; background:#e8f5e9; padding:15px; border:1px solid #4caf50;">
-                <h3 style="color:#2e7d32; margin-top:0;">কুইজ তৈরি হয়েছে!</h3>
-                <input type="text" id="generated-link" style="width:100%; color:#000; font-weight:bold;" readonly>
+            <div id="share-link-box" style="display:none; margin-top:20px; background:#e8f5e9; padding:15px;">
+                <input type="text" id="generated-link" style="width:100%; font-weight:bold;" readonly>
                 <button onclick="copyToClipboard()" style="background:#2e7d32; margin-top:10px;">📋 কপি লিংক</button>
             </div>
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
-    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="admin.js"></script>
 </body>
 </html>
