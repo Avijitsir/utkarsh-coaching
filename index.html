@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>General Knowledge For Police Exam</title>
-    
+    <title>Utkarsh Exam Portal</title>
     <link rel="stylesheet" href="style.css">
-
+    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
-
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     
     <script defer src="script.js"></script>
 </head>
@@ -21,42 +23,44 @@
             <div class="splash-logo-container">
                 <div class="outer-circle">
                     <div class="inner-circle">
-                        <div class="logo-text">
-                            <span>Utkarsh</span>
-                            <span>Coaching</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="name-input-screen" id="nameInputScreen">
-            <div class="logo-container-top-right">
-                <div class="outer-circle">
-                    <div class="inner-circle">
                         <div class="logo-text"><span>Utkarsh</span><span>Coaching</span></div>
                     </div>
                 </div>
             </div>
-            <h1>WELCOME</h1>
-            <p>Enter Your Name</p>
-            <div class="input-group">
-                <input type="text" id="userNameInput" placeholder="আপনার নাম" required>
+        </div>
+
+        <div class="name-input-screen" id="loginScreen" style="display:none;">
+            <div class="logo-container-top-right">
+                <div class="outer-circle"><div class="inner-circle"><div class="logo-text"><span>Utkarsh</span><span>App</span></div></div></div>
             </div>
-            <button class="button glow-on-hover" id="proceedToStartScreenButton">Start Quiz</button>
-            <button class="button" id="checkScoresButton">Check My Scores</button>
-            <div id="nameInputMessage" style="color: red; margin-top: 10px;"></div>
+            <h1>স্বাগতম</h1>
+            <p>পরীক্ষা দিতে লগইন করুন</p>
+            
+            <button class="button glow-on-hover" id="googleLoginBtn" style="background:white; color:#333; display:flex; align-items:center; justify-content:center; gap:10px;">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="25"> Google দিয়ে লগইন
+            </button>
+            <div id="loginMessage" style="color: red; margin-top: 10px;"></div>
         </div>
 
         <div class="start-screen" id="startScreen">
-            <div class="logo-container-top-right">
-                <div class="outer-circle"><div class="inner-circle"><div class="logo-text"><span>Utkarsh</span><span>Coaching</span></div></div></div>
+            <div class="top-profile">
+                <img id="userPhoto" src="" style="width:40px; border-radius:50%; border:2px solid white;">
+                <span id="userNameDisplay" style="font-weight:bold;">Student</span>
+                <button onclick="logout()" style="font-size:0.8rem; padding:5px 10px; background:#ff4757; color:white; border:none; border-radius:5px; margin-left:10px; cursor:pointer;">Logout</button>
             </div>
-            <h1>কুইজ লোড হচ্ছে...</h1>
-            <div class="info-item">Total Question: <span id="totalQuestionsInfo">...</span></div>
-            <div class="info-item">Full Marks: <span id="fullMarksInfo">...</span></div>
-            <div class="info-item">Time: <span id="timeLimitInfo">...</span> মিনিট</div>
-            <button class="button" id="startButton">Start</button>
+            
+            <h1 style="margin-top:20px;">কুইজ লোড হচ্ছে...</h1>
+            <div class="info-item">প্রশ্ন সংখ্যা: <span id="totalQuestionsInfo">...</span></div>
+            <div class="info-item">মোট নম্বর: <span id="fullMarksInfo">...</span></div>
+            <div class="info-item">সময়: <span id="timeLimitInfo">...</span> মিনিট</div>
+            
+            <div id="previousScoreBox" style="display:none; background:#e0f7fa; padding:10px; border-radius:10px; margin:10px 0; border:1px solid #00acc1;">
+                <h3 style="margin:0; color:#006064;">আপনি আগে এই পরীক্ষা দিয়েছেন!</h3>
+                <p style="margin:5px 0;">আপনার স্কোর: <span id="prevScoreVal" style="font-weight:bold; font-size:1.2rem;">0</span></p>
+                <button class="button" id="reattemptBtn" style="background:#00838f; font-size:1rem; padding:8px 20px;">পুনরায় দিন (Re-attempt)</button>
+            </div>
+
+            <button class="button" id="startButton">Start Quiz</button>
         </div>
 
         <div class="quiz-screen" id="quizScreen">
@@ -72,9 +76,8 @@
             </div>
 
             <div class="question-index-display" id="questionIndexDisplay"></div>
-            <div class="question-text-box" id="questionTextBox"> </div>
+            <div class="question-text-box" id="questionTextBox"></div>
             <div class="options-container" id="optionsContainer"></div>
-            <div class="feedback-message" id="feedbackMessage"></div>
 
             <div class="controls">
                 <button class="button navigation-button" id="nextButton">Next</button>
@@ -84,48 +87,37 @@
         </div>
 
         <div class="result-screen" id="resultScreen">
-            <h2>Result</h2>
+            <h2>ফলাফল</h2>
             <div class="result-summary" id="resultSummary">
                 <p class="score-overall">Score: <span id="finalScore">0.00</span></p>
-                <p>Correct Answers: <span id="correctAnswers">0</span></p>
-                <p>Wrong Answers: <span id="wrongAnswers">0</span></p>
-                <p>Unattempted: <span id="skippedQuestions">0</span></p>
-                <p>Total Questions: <span id="finalTotalQuestions">25</span></p>
+                
+                <div id="passFailBadge" style="padding:10px; border-radius:8px; font-weight:bold; color:white; margin-bottom:15px; display:none;"></div>
 
-                <p class="your-percentage-text">Your Percentage: <span id="yourPercentage">0.00%</span></p>
-                <div class="percentage-bar">
-                    <div class="percentage-bar-fill" id="percentageBarFill"></div>
-                </div>
+                <p>Correct: <span id="correctAnswers">0</span> | Wrong: <span id="wrongAnswers">0</span></p>
+                <p>Skipped: <span id="skippedQuestions">0</span> | Total: <span id="finalTotalQuestions">0</span></p>
+
+                <p class="your-percentage-text">Percentage: <span id="yourPercentage">0.00%</span></p>
+                <div class="percentage-bar"><div class="percentage-bar-fill" id="percentageBarFill"></div></div>
 
                 <div class="result-actions">
-                    <button class="button show-button" id="showAllAnswersButton">show-all</button>
-                    <button class="button show-button" id="showCorrectAnswersButton">show-Correct</button>
-                    <button class="button show-button" id="showWrongAnswersButton">show-wrong</button>
-                    <button class="button show-button" id="showSkippedQuestionsButton">show-Unattempted</button>
+                    <button class="button show-button" id="showAllAnswersButton">সব দেখুন</button>
+                    <button class="button show-button" id="showCorrectAnswersButton">সঠিক উত্তর</button>
+                    <button class="button show-button" id="showWrongAnswersButton">ভুল উত্তর</button>
                 </div>
             </div>
 
             <div class="detailed-answers-container" id="detailedAnswersContainer" style="display: none;">
                 <h2 id="detailedAnswersTitle"></h2>
-                <div class="detailed-questions-list">
-                    <ul id="questionsList"></ul>
-                </div>
-                <button class="button" id="backToResultsButton">ফলাফলে ফিরে যান</button>
+                <div class="detailed-questions-list"><ul id="questionsList"></ul></div>
+                <button class="button" id="backToResultsButton">ফিরে যান</button>
             </div>
 
-            <div class="personal-scores-section" id="personalScoresSection" style="display: none;">
-                <h2 id="personalScoresTitle"></h2>
-                <ol id="personalScoresList"></ol>
-            </div>
             <div class="ranking-section">
-                <h2>Maximum Score</h2>
+                <h2>Top Scorers</h2>
                 <ol id="rankList"></ol>
             </div>
-            <button class="button" onclick="location.reload()">আবার শুরু করুন</button>
+            <button class="button" onclick="location.reload()">হোম পেজে যান</button>
         </div>
     </div>
-
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
 </body>
 </html>
