@@ -1,4 +1,4 @@
-// আপনার Firebase প্রোজেক্ট কনফিগারেশন
+// Firebase Config
 const firebaseConfig = {
     apiKey: "AIzaSyDwGzTPmFg-gjoYtNWNJM47p22NfBugYFA",
     authDomain: "mock-test-1eea6.firebaseapp.com",
@@ -10,514 +10,268 @@ const firebaseConfig = {
     measurementId: "G-5RLWPTP8YD"
 };
 
-// Firebase ইনিশিয়ালাইজ করুন
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
+const auth = firebase.auth();
 
+// Variables
 const urlParams = new URLSearchParams(window.location.search);
 const QUIZ_ID = urlParams.get('quiz');
-
+let currentUser = null;
 let questions = [];
 let currentQuestionIndex = 0;
 let score = 0;
-let correctCount = 0;
-let wrongCount = 0;
-let skippedCount = 0;
-let questionTimerInterval;
-const questionTimeLimit = 30;
-let questionTimeLeft;
-let userName = '';
-let quizAttemptKey = null;
+let correctCount = 0; let wrongCount = 0; let skippedCount = 0;
+let timerInterval; const TIME_LIMIT = 30; let timeLeft;
 
-// DOM Elements
-const splashScreen = document.getElementById('splashScreen');
-const nameInputScreen = document.getElementById('nameInputScreen');
-const userNameInput = document.getElementById('userNameInput');
-const proceedToStartScreenButton = document.getElementById('proceedToStartScreenButton');
-const nameInputMessage = document.getElementById('nameInputMessage');
-const checkScoresButton = document.getElementById('checkScoresButton');
-const startScreen = document.getElementById('startScreen');
-const startButton = document.getElementById('startButton');
-const totalQuestionsInfo = document.getElementById('totalQuestionsInfo');
-const fullMarksInfo = document.getElementById('fullMarksInfo');
-const timeLimitInfo = document.getElementById('timeLimitInfo');
-const quizScreen = document.getElementById('quizScreen');
-const resultScreen = document.getElementById('resultScreen');
-const resultSummary = document.getElementById('resultSummary');
-const detailedAnswersContainer = document.getElementById('detailedAnswersContainer');
-const personalScoresSection = document.getElementById('personalScoresSection');
-const personalScoresTitle = document.getElementById('personalScoresTitle');
-const personalScoresList = document.getElementById('personalScoresList');
-const scoreDisplayElem = document.getElementById('scoreDisplay');
-const questionIndexDisplayElem = document.getElementById('questionIndexDisplay');
-const questionTextBox = document.getElementById('questionTextBox');
-const optionsContainer = document.getElementById('optionsContainer');
-const feedbackMessage = document.getElementById('feedbackMessage');
-const nextButton = document.getElementById('nextButton');
-const skipButton = document.getElementById('skipButton');
-const submitButton = document.getElementById('submitButton');
-const questionTimerTextElem = document.getElementById('questionTimer');
-const progressRingBar = document.querySelector('.progress-ring-bar');
-const rankListElem = document.getElementById('rankList');
-const showAllAnswersButton = document.getElementById('showAllAnswersButton');
-const showCorrectAnswersButton = document.getElementById('showCorrectAnswersButton');
-const showWrongAnswersButton = document.getElementById('showWrongAnswersButton');
-const showSkippedQuestionsButton = document.getElementById('showSkippedQuestionsButton');
-const backToResultsButton = document.getElementById('backToResultsButton');
-const detailedAnswersTitle = document.getElementById('detailedAnswersTitle');
-const questionsList = document.getElementById('questionsList');
-
-const circumference = 2 * Math.PI * 35;
-if (progressRingBar) {
-    progressRingBar.style.strokeDasharray = circumference;
-    progressRingBar.style.strokeDashoffset = circumference;
-}
-
-// --- হেল্পার ফাংশন: ম্যাথ রেন্ডার করার জন্য ---
-function renderMath(element) {
-    if (typeof renderMathInElement === 'function' && element) {
-        renderMathInElement(element, {
-            delimiters: [
-                {left: '$$', right: '$$', display: true},
-                {left: '\\[', right: '\\]', display: true},
-                {left: '\\(', right: '\\)', display: false},
-                {left: '$', right: '$', display: false}
-            ],
-            throwOnError: false
-        });
-    }
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-    if (QUIZ_ID) {
-        fetchQuizDataAndShowSplash();
-    } else {
-        document.body.innerHTML = "<h1>Error: কোনো কুইজ নির্বাচন করা হয়নি। URL-এ ?quiz=QUIZ_ID যোগ করুন।</h1>";
-        if(splashScreen) splashScreen.style.display = 'none';
-    }
+// Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    if(!QUIZ_ID) return document.body.innerHTML = "<h1>Error: Quiz ID Missing!</h1>";
+    
+    // Auth Check
+    auth.onAuthStateChanged(user => {
+        if(user) {
+            currentUser = user;
+            document.getElementById('splashScreen').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'none';
+            loadQuizData();
+        } else {
+            document.getElementById('splashScreen').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+        }
+    });
 });
 
-if(proceedToStartScreenButton) proceedToStartScreenButton.addEventListener('click', validateNameAndStartQuiz);
-if(startButton) startButton.addEventListener('click', showNameInputScreen);
-if(checkScoresButton) checkScoresButton.addEventListener('click', validateNameAndShowScores);
-if(nextButton) nextButton.addEventListener('click', handleNextQuestion);
-if(skipButton) skipButton.addEventListener('click', handleSkipQuestion);
-if(submitButton) submitButton.addEventListener('click', handleSubmitQuiz);
-if(showAllAnswersButton) showAllAnswersButton.addEventListener('click', () => displayDetailedQuestions('all'));
-if(showCorrectAnswersButton) showCorrectAnswersButton.addEventListener('click', () => displayDetailedQuestions('correct'));
-if(showWrongAnswersButton) showWrongAnswersButton.addEventListener('click', () => displayDetailedQuestions('wrong'));
-if(showSkippedQuestionsButton) showSkippedQuestionsButton.addEventListener('click', () => displayDetailedQuestions('skipped'));
-if(backToResultsButton) backToResultsButton.addEventListener('click', backToSummaryScreen);
+document.getElementById('googleLoginBtn').addEventListener('click', () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(e => alert(e.message));
+});
 
-function fetchQuizDataAndShowSplash() {
-    database.ref('quizzes/' + QUIZ_ID).once('value', (snapshot) => {
-        const quizData = snapshot.val();
-        if (quizData && quizData.questions) {
-            questions = quizData.questions;
-            const titleElem = document.getElementById('startScreen').querySelector('h1');
-            if(titleElem) titleElem.textContent = quizData.title || "Quiz";
-            totalQuestionsInfo.textContent = questions.length;
-            fullMarksInfo.textContent = questions.length;
-            timeLimitInfo.textContent = Math.ceil(questions.length * questionTimeLimit / 60);
-            splashScreen.classList.add('active');
-            setTimeout(() => {
-                splashScreen.classList.remove('active');
-                startScreen.classList.add('active');
-            }, 2000);
+window.logout = () => auth.signOut().then(() => location.reload());
+
+document.getElementById('startButton').addEventListener('click', startQuiz);
+document.getElementById('reattemptBtn').addEventListener('click', startQuiz);
+document.getElementById('nextButton').addEventListener('click', nextQuestion);
+document.getElementById('skipButton').addEventListener('click', skipQuestion);
+document.getElementById('submitButton').addEventListener('click', submitQuiz);
+
+// Functions
+function loadQuizData() {
+    // Show Profile
+    document.getElementById('userPhoto').src = currentUser.photoURL;
+    document.getElementById('userNameDisplay').innerText = currentUser.displayName.split(' ')[0];
+    document.getElementById('startScreen').classList.add('active');
+
+    // Fetch Quiz
+    database.ref('quizzes/' + QUIZ_ID).once('value', s => {
+        const d = s.val();
+        if(!d) return alert("Quiz not found!");
+        
+        questions = d.questions || [];
+        document.querySelector('#startScreen h1').innerText = d.title;
+        document.getElementById('totalQuestionsInfo').innerText = questions.length;
+        document.getElementById('fullMarksInfo').innerText = questions.length;
+        document.getElementById('timeLimitInfo').innerText = Math.ceil(questions.length * 0.5);
+
+        // Check Previous Attempt
+        checkHistory();
+    });
+}
+
+function checkHistory() {
+    database.ref(`users/${currentUser.uid}/results/${QUIZ_ID}`).once('value', s => {
+        if(s.exists()) {
+            const res = s.val();
+            document.getElementById('previousScoreBox').style.display = 'block';
+            document.getElementById('prevScoreVal').innerText = `${res.score} / ${res.total}`;
+            document.getElementById('startButton').style.display = 'none';
         } else {
-            document.body.innerHTML = `<h1>Error: '${QUIZ_ID}' নামের কোনো কুইজ খুঁজে পাওয়া যায়নি।</h1>`;
-            splashScreen.style.display = 'none';
+            document.getElementById('startButton').style.display = 'block';
         }
-    }).catch((error) => {
-        console.error("Firebase Error:", error);
-        document.body.innerHTML = "<h1>Error: কুইজ লোড করা যায়নি।</h1>";
     });
 }
 
-// --- Shuffle Function (ওলটপালট করার ফাংশন) ---
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-}
+function startQuiz() {
+    document.getElementById('startScreen').classList.remove('active');
+    document.getElementById('quizScreen').classList.add('active');
+    
+    // Reset
+    currentQuestionIndex = 0; score = 0; correctCount = 0; wrongCount = 0; skippedCount = 0;
+    
+    // Shuffle
+    questions.sort(() => Math.random() - 0.5);
+    questions.forEach(q => q.options.sort(() => Math.random() - 0.5));
 
-function validateNameAndStartQuiz() {
-    const inputName = userNameInput.value.trim();
-    if (inputName === '') {
-        nameInputMessage.textContent = "আপনার নাম লিখুন।";
-        return;
-    }
-    userName = inputName;
-    nameInputMessage.textContent = '';
-    startQuiz();
-}
-
-function validateNameAndShowScores() {
-    const inputName = userNameInput.value.trim();
-    if (inputName === '') {
-        nameInputMessage.textContent = "স্কোর দেখার জন্য নাম লিখুন।";
-        return;
-    }
-    userName = inputName;
-    nameInputMessage.textContent = '';
-    fetchAndShowScores(userName);
-}
-
-function showNameInputScreen() {
-    startScreen.classList.remove('active');
-    nameInputScreen.classList.add('active');
-}
-
-function startQuiz() { 
-    // --- Shuffle Enabled Here (চালু করা হয়েছে) ---
-    shuffleArray(questions); 
-    questions.forEach(q => shuffleArray(q.options)); 
-
-    nameInputScreen.classList.remove('active');
-    quizScreen.classList.add('active');
-
-    quizAttemptKey = database.ref('quizResults/' + QUIZ_ID).push().key;
-
-    resetQuizState(); 
     loadQuestion();
-    scoreDisplayElem.textContent = score;
-}
-
-function resetQuizState() {
-    currentQuestionIndex = 0;
-    score = 0;
-    correctCount = 0;
-    wrongCount = 0;
-    skippedCount = 0;
-    questions.forEach(q => {
-        q.userAnswer = null;
-        q.status = null;
-    });
-    clearInterval(questionTimerInterval);
-}
-
-function updateQuestionTimerDisplay() {
-    const newCircumference = 2 * Math.PI * 40; 
-    questionTimerTextElem.textContent = questionTimeLeft;
-    const offset = circumference - (questionTimeLeft / questionTimeLimit) * circumference;
-    progressRingBar.style.strokeDashoffset = offset;
-    if (questionTimeLeft <= 10) {
-        progressRingBar.style.stroke = '#FF6347';
-    } else if (questionTimeLeft <= 20) {
-        progressRingBar.style.stroke = '#FFD700';
-    } else {
-        progressRingBar.style.stroke = '#28a745';
-    }
-}
-
-function startQuestionTimer() {
-    clearInterval(questionTimerInterval);
-    questionTimeLeft = questionTimeLimit;
-    updateQuestionTimerDisplay();
-    questionTimerInterval = setInterval(() => {
-        questionTimeLeft--;
-        updateQuestionTimerDisplay();
-        if (questionTimeLeft <= 0) {
-            clearInterval(questionTimerInterval);
-            if (questions[currentQuestionIndex].status === null) handleTimeUp();
-        }
-    }, 1000);
 }
 
 function loadQuestion() {
-    if (currentQuestionIndex >= questions.length) {
-        handleSubmitQuiz();
-        return;
-    }
-    clearInterval(questionTimerInterval);
-    startQuestionTimer();
+    if(currentQuestionIndex >= questions.length) return submitQuiz();
+    
+    clearInterval(timerInterval);
+    startTimer();
 
-    const currentQuestion = questions[currentQuestionIndex];
-    questionIndexDisplayElem.textContent = `${currentQuestionIndex + 1} / ${questions.length}`;
-    questionTextBox.innerHTML = currentQuestion.question;
-    optionsContainer.innerHTML = '';
-    questionTextBox.classList.remove('active');
-    void questionTextBox.offsetWidth; 
-    questionTextBox.classList.add('active');
-    feedbackMessage.textContent = '';
-    selectedOption = null;
-    nextButton.style.display = 'none';
-    skipButton.style.display = 'inline-block';
-    submitButton.style.display = 'none';
-    if (currentQuestionIndex === questions.length - 1) {
-        submitButton.style.display = 'inline-block';
-        nextButton.style.display = 'none';
-        skipButton.style.display = 'none';
-    }
-
-    currentQuestion.options.forEach((option, index) => {
-        const button = document.createElement('button');
-        button.classList.add('option');
-        button.innerHTML = option;
-        button.addEventListener('click', () => selectOption(button, option));
-        optionsContainer.appendChild(button);
-        setTimeout(() => button.classList.add('active'), index * 100);
+    const q = questions[currentQuestionIndex];
+    document.getElementById('questionIndexDisplay').innerText = `${currentQuestionIndex+1} / ${questions.length}`;
+    document.getElementById('questionTextBox').innerHTML = q.question;
+    document.getElementById('scoreDisplay').innerText = score;
+    
+    const optsDiv = document.getElementById('optionsContainer');
+    optsDiv.innerHTML = '';
+    
+    q.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option';
+        btn.innerText = opt;
+        btn.onclick = () => selectOption(btn, opt, q.answer);
+        optsDiv.appendChild(btn);
     });
 
-    // --- Math Rendering Call ---
-    renderMath(quizScreen);
+    document.getElementById('nextButton').style.display = 'none';
+    document.getElementById('skipButton').style.display = 'inline-block';
+    
+    if(window.renderMathInElement) renderMathInElement(document.body);
 }
 
-function selectOption(selectedButton, selectedAnswer) {
-    const currentQuestion = questions[currentQuestionIndex];
-    if (currentQuestion.status !== null) return;
-    clearInterval(questionTimerInterval);
-    disableOptions();
-    const correctAnswer = currentQuestion.answer;
-    currentQuestion.userAnswer = selectedAnswer;
-    selectedButton.classList.add('selected');
-
-    if (selectedAnswer === correctAnswer) {
-        selectedButton.classList.add('correct');
-        score += 1;
-        correctCount++;
-        currentQuestion.status = 'correct';
-    } else {
-        if ("vibrate" in navigator) navigator.vibrate(200);
-        selectedButton.classList.add('wrong');
-        wrongCount++;
-        Array.from(optionsContainer.children).forEach(optionBtn => {
-            if (optionBtn.innerHTML === correctAnswer) optionBtn.classList.add('correct');
-        });
-        currentQuestion.status = 'wrong';
-    }
-    scoreDisplayElem.textContent = score.toFixed(2);
-    nextButton.style.display = 'inline-block';
-    skipButton.style.display = 'none';
-    submitButton.style.display = (currentQuestionIndex === questions.length - 1) ? 'inline-block' : 'none';
-    updatePartialProgress('incomplete');
-}
-
-function handleTimeUp() {
-    const currentQuestion = questions[currentQuestionIndex];
-    if (currentQuestion.status !== null) return;
-    skippedCount++;
-    currentQuestion.status = 'skipped';
-    currentQuestion.userAnswer = 'কোনো উত্তর দেওয়া হয়নি';
-    updatePartialProgress('incomplete');
-    showAnswer();
-    disableOptions();
-    setTimeout(() => {
-        currentQuestionIndex++;
-        loadQuestion();
-    }, 2000);
-}
-
-function showAnswer() {
-    const currentQuestion = questions[currentQuestionIndex];
-    const correctAnswer = currentQuestion.answer;
-    Array.from(optionsContainer.children).forEach(optionBtn => {
-        optionBtn.style.pointerEvents = 'none';
-        if (optionBtn.innerHTML === correctAnswer) optionBtn.classList.add('correct');
-    });
-    nextButton.style.display = 'inline-block';
-    skipButton.style.display = 'none';
-    submitButton.style.display = (currentQuestionIndex === questions.length - 1) ? 'inline-block' : 'none';
-}
-
-function disableOptions() {
-    Array.from(optionsContainer.children).forEach(opt => opt.style.pointerEvents = 'none');
-}
-
-function handleNextQuestion() {
-    const currentQuestion = questions[currentQuestionIndex];
-    if (currentQuestion.status === null) {
-        clearInterval(questionTimerInterval);
-        skippedCount++;
-        currentQuestion.status = 'skipped';
-        currentQuestion.userAnswer = 'কোনো উত্তর দেওয়া হয়নি';
-        updatePartialProgress('incomplete');
-        showAnswer();
-        disableOptions();
-        setTimeout(() => {
-            currentQuestionIndex++;
-            loadQuestion();
-        }, 1000);
-    } else {
-        currentQuestionIndex++;
-        loadQuestion();
-    }
-}
-
-function handleSkipQuestion() {
-    const currentQuestion = questions[currentQuestionIndex];
-    if (currentQuestion.status !== null) return;
-    clearInterval(questionTimerInterval);
-    skippedCount++;
-    currentQuestion.status = 'skipped';
-    currentQuestion.userAnswer = 'কোনো উত্তর দেওয়া হয়নি';
-    updatePartialProgress('incomplete');
-    showAnswer();
-    disableOptions();
-    setTimeout(() => {
-        currentQuestionIndex++;
-        loadQuestion();
+function startTimer() {
+    timeLeft = TIME_LIMIT;
+    document.getElementById('questionTimer').innerText = timeLeft;
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('questionTimer').innerText = timeLeft;
+        if(timeLeft <= 0) skipQuestion();
     }, 1000);
 }
 
-function handleSubmitQuiz() {
-    clearInterval(questionTimerInterval);
-    quizScreen.classList.remove('active');
-    resultScreen.classList.add('active');
-    detailedAnswersContainer.style.display = 'none';
-    resultSummary.style.display = 'block';
-    personalScoresSection.style.display = 'none';
-    document.querySelector('.ranking-section').style.display = 'block';
+function selectOption(btn, selected, correct) {
+    clearInterval(timerInterval);
+    const allBtns = document.querySelectorAll('.option');
+    allBtns.forEach(b => b.style.pointerEvents = 'none');
 
-    const totalPossibleScore = questions.length;
-    const yourPercentage = (totalPossibleScore > 0) ? (score / totalPossibleScore) * 100 : 0;
-    document.getElementById('finalTotalQuestions').textContent = questions.length;
-    document.getElementById('correctAnswers').textContent = correctCount;
-    document.getElementById('wrongAnswers').textContent = wrongCount;
-    document.getElementById('skippedQuestions').textContent = skippedCount;
-    document.getElementById('finalScore').textContent = score.toFixed(2);
-    document.getElementById('yourPercentage').textContent = yourPercentage.toFixed(2) + '%';
-    const percentageBarFill = document.getElementById('percentageBarFill');
-    percentageBarFill.style.width = `${yourPercentage}%`;
-    percentageBarFill.style.backgroundColor = yourPercentage >= 50 ? '#28a745' : '#dc3545';
-    updatePartialProgress('complete');
-    displayRankings();
-}
-
-function updatePartialProgress(status = 'incomplete') {
-    if (!userName || !quizAttemptKey || !QUIZ_ID) return;
-    const totalPossibleScore = questions.length;
-    const yourPercentage = (totalPossibleScore > 0) ? (score / totalPossibleScore) * 100 : 0;
-    const resultData = {
-        name: userName,
-        score: score.toFixed(2),
-        correct: correctCount,
-        wrong: wrongCount,
-        skipped: skippedCount,
-        totalQuestions: questions.length,
-        percentage: yourPercentage.toFixed(2),
-        status: status,
-        lastQuestionIndex: currentQuestionIndex,
-        timestamp: new Date().toISOString()
-    };
-    database.ref('quizResults/' + QUIZ_ID + '/' + quizAttemptKey).set(resultData);
-}
-
-function displayRankings() {
-    if (!QUIZ_ID) {
-        rankListElem.innerHTML = '<li>Quiz ID নেই।</li>';
-        return;
-    }
-    rankListElem.innerHTML = '<li>লোড হচ্ছে...</li>';
-    database.ref('quizResults/' + QUIZ_ID).once('value', (snapshot) => {
-        const userHighestScores = {}; 
-        snapshot.forEach((childSnapshot) => {
-            const data = childSnapshot.val();
-            if (data.status !== 'complete' || !data.name) return;
-            const userScore = parseFloat(data.score);
-            if (!userHighestScores[data.name] || userScore > userHighestScores[data.name].score) {
-                userHighestScores[data.name] = { name: data.name, score: userScore };
-            }
-        });
-        const rankings = Object.values(userHighestScores).sort((a, b) => b.score - a.score);
-        rankListElem.innerHTML = '';
-        if (rankings.length === 0) {
-            rankListElem.innerHTML = '<li>কোনো রেকর্ড নেই।</li>';
-        } else {
-            rankings.forEach((entry, index) => {
-                const li = document.createElement('li');
-                li.textContent = `${index + 1}. ${entry.name} - স্কোর: ${entry.score.toFixed(2)}`;
-                rankListElem.appendChild(li);
-            });
-        }
-    });
-}
-
-function fetchAndShowScores(name) {
-    nameInputScreen.classList.remove('active');
-    resultScreen.classList.add('active');
-    resultSummary.style.display = 'none';
-    detailedAnswersContainer.style.display = 'none';
-    personalScoresSection.style.display = 'block';
-    personalScoresTitle.textContent = `${name}-এর পূর্ববর্তী স্কোর`;
-    personalScoresList.innerHTML = '<li>লোড হচ্ছে...</li>';
-    displayRankings();
-    database.ref('quizResults/' + QUIZ_ID).orderByChild('name').equalTo(name).once('value', (snapshot) => {
-        if (!snapshot.exists()) {
-            personalScoresList.innerHTML = '<li>কোনো স্কোর পাওয়া যায়নি।</li>';
-            return;
-        }
-        const scores = [];
-        snapshot.forEach(c => scores.push(c.val()));
-        scores.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        personalScoresList.innerHTML = '';
-        scores.forEach(entry => {
-            const li = document.createElement('li');
-            const date = new Date(entry.timestamp).toLocaleString('bn-IN', {
-                day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-            });
-            li.textContent = `স্কোর: ${entry.score} (${entry.status === 'complete' ? 'সম্পূর্ণ' : 'অসম্পূর্ণ'}) - ${date}`;
-            personalScoresList.appendChild(li);
-        });
-    });
-}
-
-function displayDetailedQuestions(category) {
-    resultSummary.style.display = 'none';
-    personalScoresSection.style.display = 'none';
-    detailedAnswersContainer.style.display = 'block';
-    questionsList.innerHTML = '';
-    let titleText = 'সমস্ত প্রশ্ন';
-    let filteredQuestions = questions;
-    if (category === 'correct') {
-        titleText = 'সঠিক উত্তরসমূহ';
-        filteredQuestions = questions.filter(q => q.status === 'correct');
-    } else if (category === 'wrong') {
-        titleText = 'ভুল উত্তরসমূহ';
-        filteredQuestions = questions.filter(q => q.status === 'wrong');
-    } else if (category === 'skipped') {
-        titleText = 'বাদ পড়া প্রশ্নসমূহ';
-        filteredQuestions = questions.filter(q => q.status === 'skipped');
-    }
-    detailedAnswersTitle.textContent = titleText;
-    if (filteredQuestions.length === 0) {
-        questionsList.innerHTML = `<li>এই ক্যাটাগরিতে কোনো প্রশ্ন নেই।</li>`;
-        return;
-    }
-    filteredQuestions.forEach((q, index) => {
-        const li = document.createElement('li');
-        li.classList.add('detailed-question-item'); 
-        let statusClass = q.status === 'correct' ? 'correct-status' : (q.status === 'wrong' ? 'wrong-status' : 'skipped-status');
-        let statusText = q.status === 'correct' ? '(Correct)' : (q.status === 'wrong' ? '(Wrong)' : '(Skipped)');
-        const qNum = questions.indexOf(q) + 1;
-        let html = `
-            <div class="question-header">
-                <span class="question-number">${qNum}.</span>
-                <span class="question-text">${q.question}</span>
-                <span class="status-indicator ${statusClass}">${statusText}</span>
-            </div>
-            <ul class="detailed-options">
-        `;
-        q.options.forEach(opt => {
-            let cls = '';
-            if (q.userAnswer === opt) cls = q.status === 'correct' ? 'selected-correct' : 'selected-wrong';
-            if (opt === q.answer && q.status !== 'correct') cls += ' correct-answer-highlight';
-            html += `<li class="${cls}">${opt}</li>`;
-        });
-        html += `</ul>`;
-        li.innerHTML = html;
-        questionsList.appendChild(li);
-    });
+    questions[currentQuestionIndex].userAnswer = selected;
     
-    // --- Math Rendering ---
-    renderMath(detailedAnswersContainer);
+    if(selected === correct) {
+        btn.classList.add('correct');
+        score++; correctCount++;
+        questions[currentQuestionIndex].status = 'correct';
+    } else {
+        btn.classList.add('wrong');
+        wrongCount++;
+        questions[currentQuestionIndex].status = 'wrong';
+        // Show correct
+        allBtns.forEach(b => { if(b.innerText === correct) b.classList.add('correct'); });
+    }
+
+    document.getElementById('nextButton').style.display = 'inline-block';
+    document.getElementById('skipButton').style.display = 'none';
+    if(currentQuestionIndex === questions.length-1) {
+        document.getElementById('nextButton').style.display = 'none';
+        document.getElementById('submitButton').style.display = 'inline-block';
+    }
 }
 
-function backToSummaryScreen() {
-    detailedAnswersContainer.style.display = 'none';
-    personalScoresSection.style.display = 'none';
-    resultSummary.style.display = 'block';
+function skipQuestion() {
+    clearInterval(timerInterval);
+    questions[currentQuestionIndex].status = 'skipped';
+    questions[currentQuestionIndex].userAnswer = null;
+    skippedCount++;
+    nextQuestion();
+}
+
+function nextQuestion() {
+    currentQuestionIndex++;
+    loadQuestion();
+}
+
+function submitQuiz() {
+    clearInterval(timerInterval);
+    document.getElementById('quizScreen').classList.remove('active');
+    document.getElementById('resultScreen').classList.add('active');
+
+    // Calc
+    const total = questions.length;
+    const percentage = (score / total) * 100;
+    
+    // UI Update
+    document.getElementById('finalScore').innerText = score;
+    document.getElementById('correctAnswers').innerText = correctCount;
+    document.getElementById('wrongAnswers').innerText = wrongCount;
+    document.getElementById('skippedQuestions').innerText = skippedCount;
+    document.getElementById('finalTotalQuestions').innerText = total;
+    document.getElementById('yourPercentage').innerText = percentage.toFixed(1) + '%';
+    document.getElementById('percentageBarFill').style.width = percentage + '%';
+
+    // Pass/Fail Logic (Assume 40% Pass)
+    const badge = document.getElementById('passFailBadge');
+    badge.style.display = 'block';
+    if(percentage >= 40) {
+        badge.innerText = "🎉 PASSED";
+        badge.style.background = "#2ecc71";
+    } else {
+        badge.innerText = "❌ FAILED";
+        badge.style.background = "#e74c3c";
+    }
+
+    // Save to Firebase (User History)
+    database.ref(`users/${currentUser.uid}/results/${QUIZ_ID}`).set({
+        score: score,
+        total: total,
+        percentage: percentage.toFixed(1),
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    });
+
+    // Save to Global Leaderboard
+    database.ref(`quizResults/${QUIZ_ID}/${currentUser.uid}`).set({
+        name: currentUser.displayName,
+        score: score,
+        photo: currentUser.photoURL
+    });
+
+    loadRankings();
+}
+
+function loadRankings() {
+    const list = document.getElementById('rankList');
+    list.innerHTML = "<li>Loading...</li>";
+    
+    database.ref(`quizResults/${QUIZ_ID}`).orderByChild('score').limitToLast(10).once('value', s => {
+        list.innerHTML = "";
+        const data = [];
+        s.forEach(c => data.push(c.val()));
+        data.reverse().forEach((p, i) => {
+            list.innerHTML += `<li>#${i+1} ${p.name.split(' ')[0]} - Score: ${p.score}</li>`;
+        });
+    });
+}
+
+// Show Answers Logic
+document.getElementById('showAllAnswersButton').addEventListener('click', () => showDetails('all'));
+document.getElementById('showCorrectAnswersButton').addEventListener('click', () => showDetails('correct'));
+document.getElementById('showWrongAnswersButton').addEventListener('click', () => showDetails('wrong'));
+document.getElementById('backToResultsButton').addEventListener('click', () => {
+    document.getElementById('detailedAnswersContainer').style.display = 'none';
+    document.getElementById('resultSummary').style.display = 'block';
+});
+
+function showDetails(filter) {
+    document.getElementById('resultSummary').style.display = 'none';
+    const cont = document.getElementById('detailedAnswersContainer');
+    cont.style.display = 'block';
+    const ul = document.getElementById('questionsList');
+    ul.innerHTML = '';
+
+    questions.forEach((q, i) => {
+        if(filter !== 'all' && q.status !== filter) return;
+
+        let statusColor = q.status === 'correct' ? 'green' : (q.status === 'wrong' ? 'red' : 'orange');
+        let html = `
+            <div style="background:#f9f9f9; padding:10px; margin-bottom:10px; border-left:5px solid ${statusColor}">
+                <p><strong>Q${i+1}.</strong> ${q.question}</p>
+                <p style="color:green">✔ সঠিক: ${q.answer}</p>
+                <p style="color:${q.status==='correct'?'green':'red'}">👤 আপনার উত্তর: ${q.userAnswer || 'Skipped'}</p>
+            </div>
+        `;
+        ul.innerHTML += html;
+    });
+    if(window.renderMathInElement) renderMathInElement(ul);
 }
